@@ -851,7 +851,7 @@ When filing a bug, please include:
 <div align="center">
 
 <!-- DYNAMIC FOOTER -->
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0ea5e9,50:0f172a,100:020617&height=120&section=footer&text=Built%20by%20Aashish%20Chandr&fontSize=18&fontColor=94a3b8&fontAlignY=65" width="100%" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0ea5e9,50:0f172a,100:020617&height=120&section=footer&text=Built%20by%20Aashish%20Chandra&fontSize=18&fontColor=94a3b8&fontAlignY=65" width="100%" />
 
 **If InfraGPT saved your cluster (or your sleep), drop a ⭐ — it means everything.**
 
