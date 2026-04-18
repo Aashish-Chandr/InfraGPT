@@ -1,0 +1,152 @@
+---
+# Predictor — long-running service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-engine
+  namespace: ai-engine
+  labels:
+    app: ai-engine
+    team: platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-engine
+  template:
+    metadata:
+      labels:
+        app: ai-engine
+        team: platform
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: ai-engine
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: predictor
+          image: your-dockerhub-username/infragpt-ai-engine:latest
+          imagePullPolicy: Always
+          command: ["python", "predict.py"]
+          ports:
+            - name: metrics
+              containerPort: 8080
+          env:
+            - name: PROMETHEUS_URL
+              value: "http://kube-prometheus-stack-prometheus.monitoring:9090"
+            - name: REDIS_URL
+              value: "redis://redis.production:6379/1"
+            - name: MODEL_DIR
+              value: "/data/models"
+            - name: ANOMALY_THRESHOLD
+              value: "0.75"
+            - name: PREDICTION_INTERVAL
+              value: "60"
+            - name: LOG_LEVEL
+              value: "INFO"
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false  # Models need write access to /data
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: model-storage
+              mountPath: /data
+      volumes:
+        - name: model-storage
+          persistentVolumeClaim:
+            claimName: ai-engine-models
+---
+# Root Cause Analyzer — long-running service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: root-cause-analyzer
+  namespace: ai-engine
+  labels:
+    app: root-cause-analyzer
+    team: platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: root-cause-analyzer
+  template:
+    metadata:
+      labels:
+        app: root-cause-analyzer
+        team: platform
+    spec:
+      serviceAccountName: ai-engine
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: analyzer
+          image: your-dockerhub-username/infragpt-ai-engine:latest
+          imagePullPolicy: Always
+          command: ["python", "root_cause_analyzer.py"]
+          env:
+            - name: PROMETHEUS_URL
+              value: "http://kube-prometheus-stack-prometheus.monitoring:9090"
+            - name: REDIS_URL
+              value: "redis://redis.production:6379/1"
+            - name: ARGOCD_URL
+              value: "http://argocd-server.argocd:80"
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: infragpt-secrets
+                  key: slack-webhook-url
+                  optional: true
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: infragpt-secrets
+                  key: anthropic-api-key
+                  optional: true
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: infragpt-secrets
+                  key: database-url
+                  optional: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL

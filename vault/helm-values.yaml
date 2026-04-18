@@ -1,0 +1,76 @@
+# HashiCorp Vault Helm values for InfraGPT
+
+global:
+  enabled: true
+  tlsDisable: true  # Use ingress TLS termination in production
+
+server:
+  enabled: true
+  image:
+    repository: "hashicorp/vault"
+    tag: "1.15.4"
+
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+  # High availability with Raft storage
+  ha:
+    enabled: true
+    replicas: 3
+    raft:
+      enabled: true
+      setNodeId: true
+      config: |
+        ui = true
+        listener "tcp" {
+          tls_disable = 1
+          address = "[::]:8200"
+          cluster_address = "[::]:8201"
+        }
+        storage "raft" {
+          path = "/vault/data"
+          retry_join {
+            leader_api_addr = "http://vault-0.vault-internal:8200"
+          }
+          retry_join {
+            leader_api_addr = "http://vault-1.vault-internal:8200"
+          }
+          retry_join {
+            leader_api_addr = "http://vault-2.vault-internal:8200"
+          }
+        }
+        service_registration "kubernetes" {}
+
+  dataStorage:
+    enabled: true
+    size: 10Gi
+    storageClass: gp3
+
+  auditStorage:
+    enabled: true
+    size: 5Gi
+    storageClass: gp3
+
+  # Auto-unseal using AWS KMS (production)
+  # extraEnvironmentVars:
+  #   VAULT_SEAL_TYPE: awskms
+  #   VAULT_AWSKMS_SEAL_KEY_ID: "your-kms-key-id"
+
+injector:
+  enabled: true
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 50m
+    limits:
+      memory: 256Mi
+      cpu: 250m
+
+ui:
+  enabled: true
+  serviceType: ClusterIP

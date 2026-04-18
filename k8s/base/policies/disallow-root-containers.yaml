@@ -1,0 +1,53 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-root-containers
+  annotations:
+    policies.kyverno.io/title: Disallow Root Containers
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      Containers must not run as root. Running as root gives unnecessary
+      privileges and increases the blast radius of a container escape.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-runasnonroot
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+              namespaces:
+                - production
+                - staging
+      validate:
+        message: "Containers must set securityContext.runAsNonRoot: true"
+        pattern:
+          spec:
+            template:
+              spec:
+                securityContext:
+                  runAsNonRoot: true
+    - name: check-runasuser
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+              namespaces:
+                - production
+                - staging
+      validate:
+        message: "Containers must not run as UID 0 (root)"
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.spec.template.spec.securityContext.runAsUser }}"
+                operator: Equals
+                value: 0

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: infragpt-dashboards
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  cluster-overview.json: |-
+    # This file is auto-generated. Edit the source in k8s/base/monitoring/grafana/dashboards/
+    # The actual JSON is loaded via Helm values sidecar configuration

@@ -1,0 +1,19 @@
+{
+  "name": "infragpt-dashboard-server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "express": "4.18.2",
+    "pg": "8.11.3",
+    "axios": "1.6.7",
+    "cors": "2.8.5",
+    "helmet": "7.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "3.0.3"
+  }
+}

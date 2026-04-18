@@ -1,0 +1,73 @@
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfstate.lock.info
+.terraform.lock.hcl
+terraform.tfvars.local
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Vault secrets — NEVER commit these
+vault/vault-keys.json
+vault/*.token
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.env
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.pkl
+/data/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+dist/
+.cache/
+
+# Docker
+.dockerignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Kubernetes secrets
+*-secret.yaml
+*-secrets.yaml
+kubeconfig
+*.kubeconfig
+
+# CI artifacts
+*.sarif
+trivy-*.sarif
+checkov-*.sarif
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage/
+.nyc_output/

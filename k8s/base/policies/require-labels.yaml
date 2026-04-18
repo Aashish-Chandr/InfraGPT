@@ -1,0 +1,32 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-labels
+  annotations:
+    policies.kyverno.io/title: Require Standard Labels
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: low
+    policies.kyverno.io/description: >-
+      Standard labels (app, version, team) are required on all Deployments
+      for proper observability, cost allocation, and ownership tracking.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-required-labels
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+              namespaces:
+                - production
+                - staging
+      validate:
+        message: "Deployments must have labels: app, version, and team"
+        pattern:
+          metadata:
+            labels:
+              app: "?*"
+              version: "?*"
+              team: "?*"

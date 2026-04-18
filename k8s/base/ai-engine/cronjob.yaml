@@ -1,0 +1,112 @@
+---
+# Data Collector CronJob — runs daily at 2 AM
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: data-collector
+  namespace: ai-engine
+  labels:
+    app: data-collector
+    team: platform
+spec:
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: data-collector
+        spec:
+          serviceAccountName: ai-engine
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+          containers:
+            - name: collector
+              image: your-dockerhub-username/infragpt-ai-engine:latest
+              command: ["python", "data_collector.py"]
+              env:
+                - name: PROMETHEUS_URL
+                  value: "http://kube-prometheus-stack-prometheus.monitoring:9090"
+                - name: DATA_DIR
+                  value: "/data/metrics"
+                - name: LOOKBACK_DAYS
+                  value: "30"
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 512Mi
+                limits:
+                  cpu: 1000m
+                  memory: 2Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: model-storage
+                  mountPath: /data
+          volumes:
+            - name: model-storage
+              persistentVolumeClaim:
+                claimName: ai-engine-models
+---
+# Model Training CronJob — runs weekly on Sunday at 3 AM
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: model-trainer
+  namespace: ai-engine
+  labels:
+    app: model-trainer
+    team: platform
+spec:
+  schedule: "0 3 * * 0"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: model-trainer
+        spec:
+          serviceAccountName: ai-engine
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+          containers:
+            - name: trainer
+              image: your-dockerhub-username/infragpt-ai-engine:latest
+              command: ["python", "train.py"]
+              env:
+                - name: DATA_DIR
+                  value: "/data/metrics"
+                - name: MODEL_DIR
+                  value: "/data/models"
+              resources:
+                requests:
+                  cpu: 500m
+                  memory: 1Gi
+                limits:
+                  cpu: 2000m
+                  memory: 4Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: model-storage
+                  mountPath: /data
+          volumes:
+            - name: model-storage
+              persistentVolumeClaim:
+                claimName: ai-engine-models

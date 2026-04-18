@@ -1,0 +1,83 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: infragpt
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: infragpt
+spec:
+  description: "InfraGPT platform project — all application and infrastructure components"
+
+  # Only allow deployments from this repository
+  sourceRepos:
+    - "https://github.com/your-org/infragpt.git"
+    - "https://prometheus-community.github.io/helm-charts"
+    - "https://grafana.github.io/helm-charts"
+    - "https://helm.releases.hashicorp.com"
+    - "https://kyverno.github.io/kyverno/"
+
+  # Allowed destination clusters and namespaces
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: production
+    - server: https://kubernetes.default.svc
+      namespace: staging
+    - server: https://kubernetes.default.svc
+      namespace: monitoring
+    - server: https://kubernetes.default.svc
+      namespace: logging
+    - server: https://kubernetes.default.svc
+      namespace: vault
+    - server: https://kubernetes.default.svc
+      namespace: kyverno
+    - server: https://kubernetes.default.svc
+      namespace: infragpt-system
+    - server: https://kubernetes.default.svc
+      namespace: ai-engine
+
+  # Allowed cluster-scoped resources
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+    - group: "rbac.authorization.k8s.io"
+      kind: ClusterRole
+    - group: "rbac.authorization.k8s.io"
+      kind: ClusterRoleBinding
+    - group: "apiextensions.k8s.io"
+      kind: CustomResourceDefinition
+    - group: "kyverno.io"
+      kind: ClusterPolicy
+    - group: "monitoring.coreos.com"
+      kind: ClusterRole
+    - group: "monitoring.coreos.com"
+      kind: ClusterRoleBinding
+
+  # Namespace-scoped resources
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+
+  # RBAC for project
+  roles:
+    - name: developer
+      description: "Read-only access for developers"
+      policies:
+        - p, proj:infragpt:developer, applications, get, infragpt/*, allow
+        - p, proj:infragpt:developer, applications, sync, infragpt/staging-*, allow
+      groups:
+        - infragpt-developers
+    - name: admin
+      description: "Full access for platform team"
+      policies:
+        - p, proj:infragpt:admin, applications, *, infragpt/*, allow
+      groups:
+        - infragpt-admins
+
+  # Sync windows — prevent deployments during business hours on weekdays
+  syncWindows:
+    - kind: deny
+      schedule: "0 9 * * 1-5"
+      duration: 8h
+      applications:
+        - "*-production"
+      manualSync: true

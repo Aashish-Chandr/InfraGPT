@@ -1,0 +1,21 @@
+apiVersion: infragpt.io/v1alpha1
+kind: HealingPolicy
+metadata:
+  name: frontend-policy
+  namespace: production
+  labels:
+    app.kubernetes.io/part-of: infragpt
+spec:
+  targetService: frontend
+  targetNamespace: production
+  enabled: true
+  cooldownPeriod: "5m"
+  conditions:
+    - metric: |
+        increase(kube_pod_container_status_restarts_total{namespace="production",pod=~"frontend-.*"}[10m])
+      threshold: 3
+      operator: gt
+      duration: "0m"
+  actions:
+    - type: restart
+      notifySlack: true

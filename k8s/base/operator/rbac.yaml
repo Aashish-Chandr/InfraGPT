@@ -1,0 +1,59 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: self-healing-operator
+  namespace: infragpt-system
+  labels:
+    app: self-healing-operator
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: self-healing-operator
+  labels:
+    app: self-healing-operator
+rules:
+  # HealingPolicy CRD
+  - apiGroups: ["infragpt.io"]
+    resources: ["healingpolicies", "healingpolicies/status"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  # Deployments — read and update for rollback/scale
+  - apiGroups: ["apps"]
+    resources: ["deployments", "deployments/status", "replicasets"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  # Pods — delete for restart action
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "delete"]
+  # Events — create for audit trail
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  # HPA — patch for scale-up action
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  # ConfigMaps — read chaos config
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+  # Namespaces — list for cross-namespace operations
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: self-healing-operator
+  labels:
+    app: self-healing-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: self-healing-operator
+subjects:
+  - kind: ServiceAccount
+    name: self-healing-operator
+    namespace: infragpt-system

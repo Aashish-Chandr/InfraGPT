@@ -1,0 +1,124 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: healingpolicies.infragpt.io
+  labels:
+    app.kubernetes.io/part-of: infragpt
+spec:
+  group: infragpt.io
+  names:
+    kind: HealingPolicy
+    listKind: HealingPolicyList
+    plural: healingpolicies
+    singular: healingpolicy
+    shortNames:
+      - hp
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: ["spec"]
+          properties:
+            spec:
+              type: object
+              required: ["targetService", "conditions", "actions"]
+              properties:
+                targetService:
+                  type: string
+                  description: "Name of the Kubernetes Deployment to monitor and heal"
+                targetNamespace:
+                  type: string
+                  description: "Namespace of the target service (defaults to same namespace)"
+                conditions:
+                  type: array
+                  description: "List of conditions that trigger healing"
+                  items:
+                    type: object
+                    required: ["metric", "threshold", "duration"]
+                    properties:
+                      metric:
+                        type: string
+                        description: "Prometheus metric query to evaluate"
+                      threshold:
+                        type: number
+                        description: "Threshold value that triggers the condition"
+                      operator:
+                        type: string
+                        enum: ["gt", "lt", "gte", "lte"]
+                        default: "gt"
+                        description: "Comparison operator"
+                      duration:
+                        type: string
+                        description: "How long the condition must be true before acting (e.g., '3m')"
+                actions:
+                  type: array
+                  description: "Ordered list of healing actions to take"
+                  items:
+                    type: object
+                    required: ["type"]
+                    properties:
+                      type:
+                        type: string
+                        enum: ["rollback", "restart", "scale-up", "notify-only"]
+                        description: "Type of healing action"
+                      scaleReplicas:
+                        type: integer
+                        description: "Number of replicas to scale to (for scale-up action)"
+                      notifySlack:
+                        type: boolean
+                        default: true
+                        description: "Whether to send a Slack notification"
+                cooldownPeriod:
+                  type: string
+                  default: "10m"
+                  description: "Minimum time between healing actions"
+                enabled:
+                  type: boolean
+                  default: true
+                  description: "Whether this policy is active"
+            status:
+              type: object
+              properties:
+                lastActionTime:
+                  type: string
+                lastAction:
+                  type: string
+                totalActionsCount:
+                  type: integer
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
+      additionalPrinterColumns:
+        - name: Target
+          type: string
+          jsonPath: .spec.targetService
+        - name: Enabled
+          type: boolean
+          jsonPath: .spec.enabled
+        - name: Last Action
+          type: string
+          jsonPath: .status.lastAction
+        - name: Actions Count
+          type: integer
+          jsonPath: .status.totalActionsCount
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      subresources:
+        status: {}

@@ -1,0 +1,100 @@
+{
+  "description": "InfraGPT AI Engine — Anomaly Scores and Self-Healing Actions",
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "red", "value": 0.75 }
+            ]
+          },
+          "min": 0,
+          "max": 1,
+          "unit": "percentunit"
+        }
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "Anomaly Scores by Service",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "infragpt_anomaly_score",
+          "legendFormat": "{{ service }} — {{ metric }}",
+          "refId": "A"
+        }
+      ],
+      "thresholds": {
+        "mode": "absolute",
+        "steps": [
+          { "color": "transparent", "value": null },
+          { "color": "red", "value": 0.75 }
+        ]
+      }
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 2,
+      "title": "Self-Healing Actions Over Time",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "increase(infragpt_healing_actions_total[5m])",
+          "legendFormat": "{{ action }} — {{ service }}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "s" }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 3,
+      "title": "Mean Time To Recovery (MTTR)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "avg(infragpt_healing_duration_seconds)",
+          "legendFormat": "MTTR",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "id": 4,
+      "title": "AI Engine Logs",
+      "type": "logs",
+      "targets": [
+        {
+          "expr": "{namespace=\"ai-engine\"} |= \"anomaly\"",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "tags": ["infragpt", "ai", "anomaly"],
+  "time": { "from": "now-6h", "to": "now" },
+  "title": "InfraGPT — AI Engine",
+  "uid": "infragpt-ai-engine",
+  "version": 1
+}

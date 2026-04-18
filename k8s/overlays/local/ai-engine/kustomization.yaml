@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../../base/ai-engine
+
+# Use local storage for development
+patches:
+  - target:
+      kind: PersistentVolumeClaim
+      name: ai-engine-models
+    patch: |-
+      - op: replace
+        path: /spec/storageClassName
+        value: local-path
+  - target:
+      kind: Deployment
+      name: ai-engine
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1

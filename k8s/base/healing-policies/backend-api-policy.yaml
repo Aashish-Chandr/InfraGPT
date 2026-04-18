@@ -1,0 +1,32 @@
+apiVersion: infragpt.io/v1alpha1
+kind: HealingPolicy
+metadata:
+  name: backend-api-policy
+  namespace: production
+  labels:
+    app.kubernetes.io/part-of: infragpt
+spec:
+  targetService: backend
+  targetNamespace: production
+  enabled: true
+  cooldownPeriod: "10m"
+  conditions:
+    - metric: |
+        (
+          sum(rate(backend_http_requests_total{status_code=~"5..",namespace="production",app="backend"}[5m]))
+          /
+          sum(rate(backend_http_requests_total{namespace="production",app="backend"}[5m]))
+        ) * 100
+      threshold: 10
+      operator: gt
+      duration: "3m"
+    - metric: |
+        increase(kube_pod_container_status_restarts_total{namespace="production",pod=~"backend-.*"}[10m])
+      threshold: 5
+      operator: gt
+      duration: "0m"
+  actions:
+    - type: rollback
+      notifySlack: true
+    - type: notify-only
+      notifySlack: true

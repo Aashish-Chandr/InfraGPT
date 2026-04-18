@@ -1,0 +1,47 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: infragpt-environments
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - environment: staging
+            namespace: staging
+            replicaCount: "1"
+            branch: main
+          - environment: production
+            namespace: production
+            replicaCount: "3"
+            branch: main
+  template:
+    metadata:
+      name: "infragpt-{{environment}}"
+      labels:
+        environment: "{{environment}}"
+        app.kubernetes.io/part-of: infragpt
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: infragpt
+      source:
+        repoURL: https://github.com/your-org/infragpt.git
+        targetRevision: "{{branch}}"
+        path: "k8s/overlays/{{environment}}/sample-app"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{namespace}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - PrunePropagationPolicy=foreground
+        retry:
+          limit: 3
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 2m

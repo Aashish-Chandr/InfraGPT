@@ -1,0 +1,131 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: infragpt-application-alerts
+  namespace: monitoring
+  labels:
+    app: kube-prometheus-stack
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: infragpt.application
+      interval: 30s
+      rules:
+        # ─── High Error Rate ─────────────────────────────────────────────────
+        - alert: HighErrorRate
+          expr: |
+            (
+              sum(rate(backend_http_requests_total{status_code=~"5.."}[5m])) by (namespace, app)
+              /
+              sum(rate(backend_http_requests_total[5m])) by (namespace, app)
+            ) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "High error rate on {{ $labels.app }}"
+            description: "Error rate for {{ $labels.app }} in {{ $labels.namespace }} is {{ $value | humanizePercentage }} (threshold: 5%)"
+            runbook_url: "https://github.com/your-org/infragpt/wiki/runbooks/high-error-rate"
+
+        # ─── Critical Error Rate ──────────────────────────────────────────────
+        - alert: CriticalErrorRate
+          expr: |
+            (
+              sum(rate(backend_http_requests_total{status_code=~"5.."}[5m])) by (namespace, app)
+              /
+              sum(rate(backend_http_requests_total[5m])) by (namespace, app)
+            ) > 0.20
+          for: 2m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "Critical error rate on {{ $labels.app }}"
+            description: "Error rate for {{ $labels.app }} is {{ $value | humanizePercentage }} — immediate action required"
+            runbook_url: "https://github.com/your-org/infragpt/wiki/runbooks/critical-error-rate"
+
+        # ─── Pod Crash Looping ────────────────────────────────────────────────
+        - alert: PodCrashLooping
+          expr: |
+            increase(kube_pod_container_status_restarts_total[10m]) > 5
+          for: 0m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "Pod {{ $labels.pod }} is crash looping"
+            description: "Pod {{ $labels.pod }} in {{ $labels.namespace }} has restarted {{ $value }} times in the last 10 minutes"
+            runbook_url: "https://github.com/your-org/infragpt/wiki/runbooks/pod-crash-looping"
+
+        # ─── High Memory Usage ────────────────────────────────────────────────
+        - alert: HighMemoryUsage
+          expr: |
+            (
+              container_memory_working_set_bytes{namespace="production", container!=""}
+              /
+              container_spec_memory_limit_bytes{namespace="production", container!=""}
+            ) > 0.85
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "High memory usage for {{ $labels.container }}"
+            description: "Container {{ $labels.container }} in pod {{ $labels.pod }} is using {{ $value | humanizePercentage }} of its memory limit"
+            runbook_url: "https://github.com/your-org/infragpt/wiki/runbooks/high-memory"
+
+        # ─── Deployment Replicas Mismatch ─────────────────────────────────────
+        - alert: DeploymentReplicasMismatch
+          expr: |
+            kube_deployment_spec_replicas{namespace="production"}
+            !=
+            kube_deployment_status_replicas_available{namespace="production"}
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Deployment {{ $labels.deployment }} has replica mismatch"
+            description: "Deployment {{ $labels.deployment }} in {{ $labels.namespace }} has {{ $value }} unavailable replicas"
+            runbook_url: "https://github.com/your-org/infragpt/wiki/runbooks/replica-mismatch"
+
+        # ─── High Latency ─────────────────────────────────────────────────────
+        - alert: HighRequestLatency
+          expr: |
+            histogram_quantile(0.99,
+              sum(rate(backend_http_request_duration_seconds_bucket[5m])) by (le, app)
+            ) > 2.0
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "High p99 latency for {{ $labels.app }}"
+            description: "p99 latency for {{ $labels.app }} is {{ $value | humanizeDuration }} (threshold: 2s)"
+            runbook_url: "https://github.com/your-org/infragpt/wiki/runbooks/high-latency"
+
+        # ─── AI Anomaly Detected ──────────────────────────────────────────────
+        - alert: AIAnomalyDetected
+          expr: |
+            infragpt_anomaly_score > 0.75
+          for: 2m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "AI anomaly detected for {{ $labels.service }}"
+            description: "Anomaly score for {{ $labels.service }} is {{ $value }} (threshold: 0.75). Metric: {{ $labels.metric }}"
+            runbook_url: "https://github.com/your-org/infragpt/wiki/runbooks/ai-anomaly"
+
+        # ─── Self-Healing Action Taken ────────────────────────────────────────
+        - alert: SelfHealingActionTaken
+          expr: |
+            increase(infragpt_healing_actions_total[5m]) > 0
+          for: 0m
+          labels:
+            severity: info
+            team: platform
+          annotations:
+            summary: "Self-healing action taken for {{ $labels.service }}"
+            description: "The self-healing operator took action {{ $labels.action }} for {{ $labels.service }}"
