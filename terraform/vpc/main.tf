@@ -6,13 +6,6 @@ terraform {
       version = "~> 5.0"
     }
   }
-
-  # Uncomment for remote state in production
-  # backend "s3" {
-  #   bucket = "infragpt-terraform-state"
-  #   key    = "vpc/terraform.tfstate"
-  #   region = "us-east-1"
-  # }
 }
 
 provider "aws" {
@@ -59,14 +52,14 @@ module "vpc" {
   enable_dns_hostnames = true
   enable_dns_support   = true
 
-  # Required tags for EKS to discover subnets
+  # Required tags for EKS subnet discovery
   public_subnet_tags = {
-    "kubernetes.io/role/elb"                              = "1"
+    "kubernetes.io/role/elb" = "1"
     "kubernetes.io/cluster/${var.project_name}-${var.environment}" = "shared"
   }
 
   private_subnet_tags = {
-    "kubernetes.io/role/internal-elb"                     = "1"
+    "kubernetes.io/role/internal-elb" = "1"
     "kubernetes.io/cluster/${var.project_name}-${var.environment}" = "shared"
   }
 }

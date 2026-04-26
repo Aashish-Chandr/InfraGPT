@@ -1,6 +1,6 @@
 'use strict';
 
-// Initialize tracing before anything else
+// Tracing is a no-op in test mode (see tracing.js)
 require('./tracing');
 
 const express = require('express');
@@ -11,7 +11,7 @@ const rateLimit = require('express-rate-limit');
 const client = require('prom-client');
 const winston = require('winston');
 
-// ─── Logger ──────────────────────────────────────────────────────────────────
+// ─── Logger ───────────────────────────────────────────────────────────────────
 
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
@@ -62,16 +62,15 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
-// Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
 });
 app.use(limiter);
 
-// ─── Middleware: Metrics Collection ───────────────────────────────────────────
+// ─── Metrics Middleware ───────────────────────────────────────────────────────
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -82,14 +81,18 @@ app.use((req, res, next) => {
       { method: req.method, route, status_code: res.statusCode },
       duration
     );
-    httpRequestTotal.inc({ method: req.method, route, status_code: res.statusCode });
+    httpRequestTotal.inc({
+      method: req.method,
+      route,
+      status_code: res.statusCode,
+    });
   });
   next();
 });
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
     service: 'infragpt-frontend',
@@ -98,7 +101,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-app.get('/ready', async (req, res) => {
+app.get('/ready', async (_req, res) => {
   try {
     await axios.get(`${BACKEND_URL}/health`, { timeout: 2000 });
     res.json({ status: 'ready' });
@@ -108,7 +111,7 @@ app.get('/ready', async (req, res) => {
   }
 });
 
-app.get('/metrics', async (req, res) => {
+app.get('/metrics', async (_req, res) => {
   res.set('Content-Type', register.contentType);
   res.end(await register.metrics());
 });
@@ -118,10 +121,15 @@ app.get('/api/items', async (req, res) => {
   try {
     const response = await axios.get(`${BACKEND_URL}/items`, {
       timeout: 5000,
-      headers: { 'X-Request-ID': req.headers['x-request-id'] || generateRequestId() },
+      headers: {
+        'X-Request-ID':
+          req.headers['x-request-id'] || generateRequestId(),
+      },
     });
     timer({ status: 'success' });
-    logger.info('Fetched items from backend', { count: response.data.length });
+    logger.info('Fetched items from backend', {
+      count: response.data.length,
+    });
     res.json(response.data);
   } catch (err) {
     timer({ status: 'error' });
@@ -145,10 +153,12 @@ app.post('/api/items', async (req, res) => {
   }
 });
 
-app.get('/api/stats', async (req, res) => {
+app.get('/api/stats', async (_req, res) => {
   const timer = backendCallDuration.startTimer({ endpoint: '/stats' });
   try {
-    const response = await axios.get(`${BACKEND_URL}/stats`, { timeout: 5000 });
+    const response = await axios.get(`${BACKEND_URL}/stats`, {
+      timeout: 5000,
+    });
     timer({ status: 'success' });
     res.json(response.data);
   } catch (err) {
@@ -160,7 +170,8 @@ app.get('/api/stats', async (req, res) => {
 
 // ─── Error Handler ────────────────────────────────────────────────────────────
 
-app.use((err, req, res, _next) => {
+// eslint-disable-next-line no-unused-vars
+app.use((err, _req, res, _next) => {
   logger.error('Unhandled error', { error: err.message, stack: err.stack });
   res.status(500).json({ error: 'Internal server error' });
 });
@@ -173,17 +184,19 @@ function generateRequestId() {
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 
-const server = app.listen(PORT, () => {
-  logger.info(`Frontend service listening on port ${PORT}`);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM received, shutting down gracefully');
-  server.close(() => {
-    logger.info('HTTP server closed');
-    process.exit(0);
+// Only listen when run directly, not when required by tests
+if (require.main === module) {
+  const server = app.listen(PORT, () => {
+    logger.info(`Frontend service listening on port ${PORT}`);
   });
-});
 
-module.exports = app; // for testing
+  process.on('SIGTERM', () => {
+    logger.info('SIGTERM received, shutting down gracefully');
+    server.close(() => {
+      logger.info('HTTP server closed');
+      process.exit(0);
+    });
+  });
+}
+
+module.exports = app;

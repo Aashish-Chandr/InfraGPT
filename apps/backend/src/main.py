@@ -243,7 +243,11 @@ async def list_items() -> list[Item]:
 
         # Fetch from DB
         async for db in get_db():
-            result = await db.execute(text("SELECT id, name, description, created_at FROM items ORDER BY created_at DESC LIMIT 100"))
+            sql = text(
+                "SELECT id, name, description, created_at"
+                " FROM items ORDER BY created_at DESC LIMIT 100"
+            )
+            result = await db.execute(sql)
             rows = result.fetchall()
             items = [
                 Item(id=r[0], name=r[1], description=r[2], created_at=str(r[3]))
@@ -256,7 +260,8 @@ async def list_items() -> list[Item]:
         if redis_client:
             try:
                 import json
-                await redis_client.setex("items:all", 30, json.dumps([i.model_dump() for i in items]))
+                payload = json.dumps([i.model_dump() for i in items])
+                await redis_client.setex("items:all", 30, payload)
                 REDIS_OPERATIONS.labels(operation="set", status="ok").inc()
             except Exception as exc:
                 logger.warning("Redis set failed", extra={"error": str(exc)})
@@ -270,8 +275,13 @@ async def create_item(item: ItemCreate) -> Item:
     tracer = trace.get_tracer(__name__)
     with tracer.start_as_current_span("create_item"):
         async for db in get_db():
+            insert_sql = text(
+                "INSERT INTO items (name, description)"
+                " VALUES (:name, :description)"
+                " RETURNING id, name, description, created_at"
+            )
             result = await db.execute(
-                text("INSERT INTO items (name, description) VALUES (:name, :description) RETURNING id, name, description, created_at"),
+                insert_sql,
                 {"name": item.name, "description": item.description},
             )
             await db.commit()

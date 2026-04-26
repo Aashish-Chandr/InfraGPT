@@ -24,13 +24,15 @@ provider "aws" {
   }
 }
 
-# Pull VPC outputs from remote state (or use data sources)
+# Pull VPC outputs from remote state
 data "terraform_remote_state" "vpc" {
   backend = "local"
   config = {
     path = "../vpc/terraform.tfstate"
   }
 }
+
+data "aws_caller_identity" "current" {}
 
 locals {
   cluster_name = "${var.project_name}-${var.environment}"
@@ -49,10 +51,8 @@ module "eks" {
   subnet_ids                     = local.subnet_ids
   cluster_endpoint_public_access = true
 
-  # Enable IRSA (IAM Roles for Service Accounts)
   enable_irsa = true
 
-  # EKS Managed Add-ons
   cluster_addons = {
     coredns = {
       most_recent = true
@@ -76,7 +76,6 @@ module "eks" {
     }
   }
 
-  # Node Groups
   eks_managed_node_groups = {
     general = {
       name           = "general"
@@ -86,7 +85,6 @@ module "eks" {
       max_size     = var.node_max_size
       desired_size = var.node_desired_size
 
-      # Use latest EKS-optimized AMI
       ami_type = "AL2_x86_64"
 
       labels = {
@@ -99,7 +97,6 @@ module "eks" {
         max_unavailable_percentage = 33
       }
 
-      # Enable detailed monitoring
       enable_monitoring = true
 
       block_device_mappings = {
@@ -115,7 +112,6 @@ module "eks" {
       }
     }
 
-    # Spot instances for non-critical workloads
     spot = {
       name           = "spot"
       instance_types = ["t3.medium", "t3a.medium", "t3.large"]
@@ -140,7 +136,6 @@ module "eks" {
     }
   }
 
-  # Cluster access entries
   access_entries = {
     admin = {
       kubernetes_groups = []
@@ -157,9 +152,6 @@ module "eks" {
   }
 }
 
-data "aws_caller_identity" "current" {}
-
-# IRSA role for EBS CSI driver
 module "ebs_csi_irsa_role" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
   version = "5.37.1"
@@ -175,7 +167,6 @@ module "ebs_csi_irsa_role" {
   }
 }
 
-# IRSA role for Cluster Autoscaler
 module "cluster_autoscaler_irsa_role" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
   version = "5.37.1"
