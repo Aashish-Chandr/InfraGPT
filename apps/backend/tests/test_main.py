@@ -1,51 +1,44 @@
 """
-Tests for the backend service.
-
-These tests are intentionally lightweight — they test the models and
-database helpers directly without spinning up the full FastAPI app
-(which requires live Redis + PostgreSQL connections).
+Backend unit tests — pure logic, no DB or Redis required.
 """
 
+import sys
+import os
+
+# Put the backend src on the path so 'from src.models import ...' works
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+import pydantic
+from src.models import ItemCreate, StatsResponse
 
 
-# ─── Model Tests ──────────────────────────────────────────────────────────────
+# ─── ItemCreate ───────────────────────────────────────────────────────────────
 
-def test_item_create_model():
-    """ItemCreate validates name length."""
-    import sys
-    import os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-    from src.models import ItemCreate
-
-    item = ItemCreate(name="test-item", description="a description")
-    assert item.name == "test-item"
-    assert item.description == "a description"
+def test_item_create_valid():
+    item = ItemCreate(name="widget", description="a test widget")
+    assert item.name == "widget"
+    assert item.description == "a test widget"
 
 
-def test_item_create_requires_name():
-    """ItemCreate rejects empty name."""
-    import sys
-    import os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+def test_item_create_no_description():
+    item = ItemCreate(name="widget")
+    assert item.description is None
 
-    from src.models import ItemCreate
-    import pydantic
 
+def test_item_create_empty_name_rejected():
     with pytest.raises(pydantic.ValidationError):
         ItemCreate(name="")
 
 
-def test_stats_response_model():
-    """StatsResponse serialises correctly."""
-    import sys
-    import os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+def test_item_create_name_too_long_rejected():
+    with pytest.raises(pydantic.ValidationError):
+        ItemCreate(name="x" * 256)
 
-    from src.models import StatsResponse
 
+# ─── StatsResponse ────────────────────────────────────────────────────────────
+
+def test_stats_response_valid():
     stats = StatsResponse(
         total_items=42,
         redis_connected=True,
@@ -54,25 +47,46 @@ def test_stats_response_model():
     )
     assert stats.total_items == 42
     assert stats.redis_connected is True
+    assert stats.service == "infragpt-backend"
 
 
-# ─── Health Logic Tests ───────────────────────────────────────────────────────
+def test_stats_response_zero_items():
+    stats = StatsResponse(
+        total_items=0,
+        redis_connected=False,
+        service="infragpt-backend",
+        version="1.0.0",
+    )
+    assert stats.total_items == 0
+    assert stats.redis_connected is False
+
+
+# ─── Business logic ───────────────────────────────────────────────────────────
 
 def test_health_response_shape():
-    """Health endpoint returns expected keys."""
-    expected_keys = {"status", "service", "version"}
     response = {
         "status": "ok",
         "service": "infragpt-backend",
         "version": "1.0.0",
     }
-    assert expected_keys == set(response.keys())
     assert response["status"] == "ok"
+    assert "service" in response
+    assert "version" in response
 
 
-def test_anomaly_score_threshold():
-    """Anomaly score threshold logic is correct."""
+def test_anomaly_threshold_logic():
     threshold = 0.75
-    assert 0.80 >= threshold   # should trigger
-    assert 0.50 < threshold    # should not trigger
-    assert 0.75 >= threshold   # boundary — should trigger
+    assert 0.80 >= threshold    # triggers
+    assert 0.50 < threshold     # does not trigger
+    assert 0.75 >= threshold    # boundary triggers
+    assert 0.74 < threshold     # just below does not trigger
+
+
+def test_severity_classification():
+    def classify(score: float) -> str:
+        return "critical" if score >= 0.9 else "warning"
+
+    assert classify(0.95) == "critical"
+    assert classify(0.90) == "critical"
+    assert classify(0.89) == "warning"
+    assert classify(0.75) == "warning"

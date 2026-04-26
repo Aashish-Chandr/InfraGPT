@@ -16,13 +16,6 @@ provider "aws" {
   region = var.aws_region
 }
 
-data "terraform_remote_state" "vpc" {
-  backend = "local"
-  config = {
-    path = "../vpc/terraform.tfstate"
-  }
-}
-
 resource "random_password" "db_password" {
   length           = 32
   special          = true
@@ -41,7 +34,7 @@ resource "aws_secretsmanager_secret_version" "db_password" {
 
 resource "aws_db_subnet_group" "main" {
   name       = "${var.project_name}-${var.environment}"
-  subnet_ids = data.terraform_remote_state.vpc.outputs.private_subnet_ids
+  subnet_ids = var.private_subnet_ids
 
   tags = {
     Name = "${var.project_name}-${var.environment}"
@@ -51,13 +44,13 @@ resource "aws_db_subnet_group" "main" {
 resource "aws_security_group" "rds" {
   name        = "${var.project_name}-${var.environment}-rds"
   description = "Security group for RDS PostgreSQL"
-  vpc_id      = data.terraform_remote_state.vpc.outputs.vpc_id
+  vpc_id      = var.vpc_id
 
   ingress {
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
-    cidr_blocks = [data.terraform_remote_state.vpc.outputs.vpc_cidr_block]
+    cidr_blocks = [var.vpc_cidr_block]
     description = "PostgreSQL from VPC"
   }
 

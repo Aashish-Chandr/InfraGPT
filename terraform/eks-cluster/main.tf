@@ -24,20 +24,13 @@ provider "aws" {
   }
 }
 
-# Pull VPC outputs from remote state
-data "terraform_remote_state" "vpc" {
-  backend = "local"
-  config = {
-    path = "../vpc/terraform.tfstate"
-  }
-}
-
 data "aws_caller_identity" "current" {}
 
 locals {
   cluster_name = "${var.project_name}-${var.environment}"
-  vpc_id       = data.terraform_remote_state.vpc.outputs.vpc_id
-  subnet_ids   = data.terraform_remote_state.vpc.outputs.private_subnet_ids
+  # Use variables instead of remote_state so terraform validate works in CI
+  vpc_id     = var.vpc_id
+  subnet_ids = var.private_subnet_ids
 }
 
 module "eks" {
@@ -85,7 +78,8 @@ module "eks" {
       max_size     = var.node_max_size
       desired_size = var.node_desired_size
 
-      ami_type = "AL2_x86_64"
+      ami_type          = "AL2_x86_64"
+      enable_monitoring = true
 
       labels = {
         role = "general"
@@ -96,8 +90,6 @@ module "eks" {
       update_config = {
         max_unavailable_percentage = 33
       }
-
-      enable_monitoring = true
 
       block_device_mappings = {
         xvda = {

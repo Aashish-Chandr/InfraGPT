@@ -39,3 +39,16 @@ variable "node_desired_size" {
   type        = number
   default     = 2
 }
+
+# VPC inputs — pass these from vpc module outputs or set manually
+variable "vpc_id" {
+  description = "VPC ID to deploy the cluster into"
+  type        = string
+  default     = ""
+}
+
+variable "private_subnet_ids" {
+  description = "List of private subnet IDs for worker nodes"
+  type        = list(string)
+  default     = []
+}
